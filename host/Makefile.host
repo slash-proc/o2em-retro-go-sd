@@ -28,12 +28,32 @@ else
 $(error HOST_SDL must be 2 or 3 (got '$(HOST_SDL)'))
 endif
 
-HOST_PKG_CFLAGS := $(shell pkg-config --cflags $(HOST_SDL_PC) 2>/dev/null)
-HOST_PKG_LIBS   := $(shell pkg-config --libs $(HOST_SDL_PC) 2>/dev/null)
+# Prefer Homebrew pkg-config + .pc files. A PATH that puts
+# /opt/devkitpro/tools/bin first (Switch / 3DS / Wii SDKs) shadows the
+# system pkg-config and cannot see sdl2.pc under /opt/homebrew.
+ifneq ($(wildcard /opt/homebrew/bin/pkg-config),)
+HOST_PKG_CONFIG := /opt/homebrew/bin/pkg-config
+else ifneq ($(wildcard /usr/local/bin/pkg-config),)
+HOST_PKG_CONFIG := /usr/local/bin/pkg-config
+else
+HOST_PKG_CONFIG := pkg-config
+endif
+
+ifneq ($(wildcard /opt/homebrew/lib/pkgconfig),)
+HOST_PKG_CONFIG_PATH := /opt/homebrew/lib/pkgconfig:/opt/homebrew/share/pkgconfig
+else ifneq ($(wildcard /usr/local/lib/pkgconfig),)
+HOST_PKG_CONFIG_PATH := /usr/local/lib/pkgconfig:/usr/local/share/pkgconfig
+endif
+ifneq ($(HOST_PKG_CONFIG_PATH),)
+HOST_PKG_CONFIG_ENV := PKG_CONFIG_PATH="$(HOST_PKG_CONFIG_PATH)$(if $(PKG_CONFIG_PATH),:$(PKG_CONFIG_PATH))"
+endif
+
+HOST_PKG_CFLAGS := $(shell $(HOST_PKG_CONFIG_ENV) $(HOST_PKG_CONFIG) --cflags $(HOST_SDL_PC) 2>/dev/null)
+HOST_PKG_LIBS   := $(shell $(HOST_PKG_CONFIG_ENV) $(HOST_PKG_CONFIG) --libs $(HOST_SDL_PC) 2>/dev/null)
 # macOS sdl2.pc pulls -lSDL2main which wants SDL_main; we provide main() ourselves.
 HOST_PKG_LIBS   := $(filter-out -lSDL2main,$(HOST_PKG_LIBS))
 ifeq ($(HOST_PKG_LIBS),)
-$(warning pkg-config $(HOST_SDL_PC) not found — host link may fail. Install SDL$(HOST_SDL) devel package.)
+$(warning $(HOST_PKG_CONFIG) $(HOST_SDL_PC) not found — host link may fail. Install SDL$(HOST_SDL) (brew install sdl2) and keep Homebrew ahead of dig/devkitPro in PATH.)
 endif
 
 HOST_INC_ROOT := $(GNW_CORE_SDK)/include
@@ -56,6 +76,7 @@ HOST_INCLUDES := \
 	-I$(HOST_INC_ROOT)/Core/Inc/porting \
 	-I$(HOST_INC_ROOT)/Core/Src/porting/lib \
 	-I$(HOST_INC_ROOT)/Core/Src/porting/lib/FatFs \
+	$(CORE_C_INCLUDES) \
 	$(HOST_PKG_CFLAGS)
 
 HOST_CFLAGS := -O2 -g -Wall -Wextra -std=c11 \
@@ -82,13 +103,8 @@ $(HOST_BIN): $(HOST_OBJS)
 	$(V)$(ECHO) [ LD HOST ] $@
 	$(V)$(HOST_CC) -o $@ $(HOST_OBJS) $(HOST_PKG_LIBS)
 
-# Explicit pattern under HOST_BUILD_DIR only (do not collide with sdk ARM rules).
-$(HOST_BUILD_DIR)/src/%.o: src/%.c
-	$(V)mkdir -p $(dir $@)
-	$(V)$(ECHO) [ CC HOST ] $<
-	$(V)$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
-
-$(HOST_BUILD_DIR)/host/%.o: host/%.c
+# Nested sources under src/ and host/ (do not collide with sdk ARM rules).
+$(HOST_BUILD_DIR)/%.o: %.c
 	$(V)mkdir -p $(dir $@)
 	$(V)$(ECHO) [ CC HOST ] $<
 	$(V)$(HOST_CC) $(HOST_CFLAGS) -MMD -MP -MF"$(@:%.o=%.d)" -c $< -o $@
