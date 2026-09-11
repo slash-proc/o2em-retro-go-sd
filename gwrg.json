@@ -1,0 +1,28 @@
+{
+  "systems": {
+    "videopac": {
+      "shortName": "Videopac",
+      "compression": false,
+      "bios": [
+        {
+          "id": "bios",
+          "filename": [
+            "o2rom.bin",
+            "c52.bin",
+            "g7400.bin",
+            "jopac.bin"
+          ],
+          "required": true,
+          "bytes": 1024,
+          "$comment": "main.c:64-68 tries the four names in this order and takes the first that reads as exactly 1024 bytes, so any one of them satisfies the core -- they are four machine models, not four separate requirements.",
+          "label": {
+            "en": "Videopac / Odyssey2 BIOS"
+          },
+          "description": {
+            "en": "The 1 KB console boot ROM, read from /bios/videopac/. Required: nothing runs without it. Any one of the four will do, and the one present decides which machine the core emulates -- o2rom.bin is the Magnavox Odyssey2 (G7000), c52.bin the Philips Videopac C52, g7400.bin the European Videopac+ G7400, jopac.bin the French Jopac. The G7400 images add the extra video modes a handful of Videopac+ titles use."
+          }
+        }
+      ]
+    }
+  }
+}
