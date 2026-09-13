@@ -3,6 +3,10 @@
     "videopac": {
       "shortName": "Videopac",
       "compression": false,
+      "runtime": {
+        "savestate": { "supported": true },
+        "save": { "supported": false }
+      },
       "bios": [
         {
           "id": "bios",
